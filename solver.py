@@ -19,7 +19,7 @@ class Solver(object):
                  discriminator,
                  lr_g: float =1e-3,
                  lr_d: float =1e-3,
-                 density_threshold: float =0.05,
+                 density_threshold: float =0.005,
                  logdir: str =None):
         self.generator = generator
         self.discriminator = discriminator
@@ -28,12 +28,13 @@ class Solver(object):
         self.latent_dim = self.generator.latent_dim
         self.thr = density_threshold
         self.eps = 1e-8
+        self.logdir = logdir
 
     def _update_discriminator(self, x, z):
         with tf.GradientTape() as tape:
-            gz = self.generator(z)
-            d_real = self.discriminator(x)
-            d_fake = self.discriminator(gz)
+            gz = self.generator(z, training=True)
+            d_real = self.discriminator(x, training=True)
+            d_fake = self.discriminator(gz, training=True)
 
             loss_d = discriminator_loss(d_real, d_fake, 'JSD')
             loss_d -= tf.reduce_mean(tf.nn.sigmoid(d_real) * tf.log(tf.nn.sigmoid(d_real)))
@@ -43,15 +44,16 @@ class Solver(object):
 
     def _update_generator(self, x, z):
         with tf.GradientTape() as tape:
-            gz = self.generator(z)
-            d_fake, feature_fake = self.discriminator(gz, with_feature=True)
-            _, feature_true = self.discriminator(x, with_feature=True)
+            gz = self.generator(z, training=True)
+            d_fake, feature_fake = self.discriminator(gz, with_feature=True, training=True)
+            _, feature_true = self.discriminator(x, with_feature=True, training=True)
 
             loss_fm = tf.reduce_mean((feature_fake - feature_true) ** 2)
-            loss_kl = tf.reduce_mean(tf.boolean_mask(tf.log(d_fake),
-                                                     d_fake > self.thr))
+            loss_kl = tf.reduce_mean(tf.boolean_mask(tf.log(tf.nn.sigmoid(d_fake)),
+                                                     tf.nn.sigmoid(d_fake) > self.thr))
+            loss_kl = 0 if tf.is_nan(loss_kl) else loss_kl
             loss_pt = pull_away(feature_fake)
-            loss_kl -= loss_pt
+            loss_kl += loss_pt
             loss_g = loss_kl + loss_fm
         grads = tape.gradient(loss_g, self.generator.variables)
         self.opt_g.apply_gradients(zip(grads, self.generator.variables))
@@ -107,3 +109,32 @@ class Solver(object):
                 print('iter : {} / {}  {:.1f}[s]  loss_d : {:.4f}  loss_fm : {:.4f}  loss_kl : {:.4f} \r'
                       .format(iter_, steps_per_epoch, time.time() - start,
                               loss_d, loss_fm, loss_kl), end='')
+
+            if epoch % visualize_steps == 0:
+                self._visualize(z, epoch, image_sampler.data_to_image)
+
+            if epoch % save_steps == 0:
+                os.makedirs(os.path.join(self.logdir, 'model'), exist_ok=True)
+                self.generator.save_weights(os.path.join(self.logdir, 'model', 'generator_%d.h5' % epoch))
+                self.discriminator.save_weights(os.path.join(self.logdir, 'model', 'discriminator_%d.h5' % epoch))
+
+    def _visualize(self, z, epoch, data_to_image):
+        dst_path = os.path.join(self.logdir, 'image', 'epoch_%d.png' % epoch)
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+        outputs = self.generator(z, training=True)
+        outputs = np.array(outputs)
+        outputs = data_to_image(outputs)
+        n, h, w, c = outputs.shape
+        n_sq = int(np.sqrt(n))
+        outputs = outputs[:n_sq ** 2]
+        if c == 1:
+            outputs = outputs.reshape(n_sq, n_sq, h, w)
+            outputs = outputs.transpose(0, 2, 1, 3)
+            outputs = outputs.reshape(h * n_sq, w * n_sq)
+        else:
+            outputs = outputs.reshape(n_sq, n_sq, h, w, 3)
+            outputs = outputs.transpose(0, 2, 1, 3, 4)
+            outputs = outputs.reshape(h * n_sq, w * n_sq, 3)
+        Image.fromarray(outputs).save(dst_path)
+
+
