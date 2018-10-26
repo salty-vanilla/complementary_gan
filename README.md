@@ -10,6 +10,3 @@ But it has convolutional layers.
 ## Experiments
 * Inlier: '0' in MNIST
 * Outlier: 'Not 0'
-
-| <img src="assets/gen.png"> | <img src="assets/normality_histogram.png"> | <img src="assets/roc.png"> |
-|:-----------|------------:|:------------:|
