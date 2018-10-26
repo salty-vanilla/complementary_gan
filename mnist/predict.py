@@ -19,7 +19,7 @@ def main():
     outlier_classes = [i for i in range(10) if i not in inlier_classes]
 
     x, y = get_digits(labels=list(range(10)),
-                      nb_sampling_list=[None for _ in range(len(outlier_classes))],
+                      nb_sampling_list=[None for _ in range(10)],
                       **config['test_data_params'])
     x = (x/255 - 0.5)*2.
     y = np.array(y)
