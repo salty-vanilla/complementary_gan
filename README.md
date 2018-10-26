@@ -10,3 +10,10 @@ But it has convolutional layers.
 ## Experiments
 * Inlier: '0' in MNIST
 * Outlier: 'Not 0'
+
+### Generated samples
+<img src="assets/gen.png">
+
+### Discrimination results
+| <img src="assets/normality_histogram.png"> | <img src="assets/roc.png"> |
+|-|-|
