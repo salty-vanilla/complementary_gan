@@ -11,5 +11,5 @@ But it has convolutional layers.
 * Inlier: '0' in MNIST
 * Outlier: 'Not 0'
 
-<img src="assets/normality_histogram.png">  
-<img src="assets/roc.png">
+| <img src="assets/gen.png"> | <img src="assets/normality_histogram.png"> | <img src="assets/roc.png"> |
+|:-----------|------------:|:------------:|
